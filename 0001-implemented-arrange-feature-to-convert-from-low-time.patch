@@ -1,0 +1,87 @@
+From 57909b51dbac7dca917958444e564d2ca33c7b35 Mon Sep 17 00:00:00 2001
+From: Roman Arutyunyan <arutyunyan.roman@gmail.com>
+Date: Wed, 3 Oct 2012 18:13:49 +0400
+Subject: [PATCH] Implemented arrange feature to convert from low timebase formats to high timebase
+
+---
+ ffmpeg.h             |    2 ++
+ ffmpeg_opt.c         |    4 ++++
+ libavcodec/avcodec.h |    7 +++++++
+ libavformat/utils.c  |    8 ++++++++
+ 4 files changed, 21 insertions(+), 0 deletions(-)
+
+diff --git a/ffmpeg.h b/ffmpeg.h
+index 56f8dfc..cadbea4 100644
+--- a/ffmpeg.h
++++ b/ffmpeg.h
+@@ -167,6 +167,8 @@ typedef struct OptionsContext {
+     int        nb_pass;
+     SpecifierOpt *passlogfiles;
+     int        nb_passlogfiles;
++    SpecifierOpt *arrange;
++    int        nb_arrange;
+ } OptionsContext;
+ 
+ typedef struct InputFilter {
+diff --git a/ffmpeg_opt.c b/ffmpeg_opt.c
+index 2c5fbfb..a50a9cf 100644
+--- a/ffmpeg_opt.c
++++ b/ffmpeg_opt.c
+@@ -994,6 +994,8 @@ static OutputStream *new_output_stream(OptionsContext *o, AVFormatContext *oc, e
+         st->codec->global_quality = FF_QP2LAMBDA * qscale;
+     }
+ 
++    MATCH_PER_STREAM_OPT(arrange, i64, st->codec->arrange_threshold, oc, st);
++
+     if (oc->oformat->flags & AVFMT_GLOBALHEADER)
+         st->codec->flags |= CODEC_FLAG_GLOBAL_HEADER;
+ 
+@@ -2343,6 +2345,8 @@ const OptionDef options[] = {
+         "extract an attachment into a file", "filename" },
+     { "debug_ts",       OPT_BOOL | OPT_EXPERT,                       { &debug_ts },
+         "print timestamp debugging info" },
++    { "arrange",        HAS_ARG | OPT_INT64 | OPT_SPEC,              { .off = OFFSET(arrange) },
++        "arrange closely spaced frames" },
+ 
+     /* video options */
+     { "vframes",      OPT_VIDEO | HAS_ARG  | OPT_PERFILE,                        { .func_arg = opt_video_frames },
+diff --git a/libavcodec/avcodec.h b/libavcodec/avcodec.h
+index dc317dc..5811690 100644
+--- a/libavcodec/avcodec.h
++++ b/libavcodec/avcodec.h
+@@ -3083,6 +3083,13 @@ typedef struct AVCodecContext {
+     int64_t pts_correction_num_faulty_dts; /// Number of incorrect DTS values so far
+     int64_t pts_correction_last_pts;       /// PTS of the last frame
+     int64_t pts_correction_last_dts;       /// DTS of the last frame
++
++    /**
++     * Max timestamp between frames to arrange them (in microseconds)
++     * - decoding: unused
++     * - encoding: set by user
++     */
++    int64_t arrange_threshold;
+ } AVCodecContext;
+ 
+ AVRational av_codec_get_pkt_timebase         (const AVCodecContext *avctx);
+diff --git a/libavformat/utils.c b/libavformat/utils.c
+index 05c4b7f..0b59eeb 100644
+--- a/libavformat/utils.c
++++ b/libavformat/utils.c
+@@ -3498,6 +3498,14 @@ static int compute_pkt_fields2(AVFormatContext *s, AVStream *st, AVPacket *pkt){
+     if(pkt->pts == AV_NOPTS_VALUE && pkt->dts != AV_NOPTS_VALUE && delay==0)
+         pkt->pts= pkt->dts;
+ 
++    if (st->codec->arrange_threshold && pkt->dts != AV_NOPTS_VALUE && st->pts.val != AV_NOPTS_VALUE){
++        int64_t diff = pkt->dts - st->pts.val;
++        int64_t maxdiff = av_rescale(st->codec->arrange_threshold, st->time_base.den, AV_TIME_BASE * (int64_t)st->time_base.num);
++        av_dlog(s, "Arrange dts=%"PRId64" cur_dts=%"PRId64" diff=%"PRId64" maxdiff=%"PRId64"\n", pkt->dts, st->pts.val, diff, maxdiff);
++        if (diff > -maxdiff && diff < maxdiff)
++            pkt->dts = pkt->pts = AV_NOPTS_VALUE;
++    }
++
+     //XXX/FIXME this is a temporary hack until all encoders output pts
+     if((pkt->pts == 0 || pkt->pts == AV_NOPTS_VALUE) && pkt->dts == AV_NOPTS_VALUE && !delay){
+         static int warned;
+-- 
+1.7.1
+

@@ -1,0 +1,23 @@
+From c750fa5a8efee6ccaa83bcc5be6cebebe7466be9 Mon Sep 17 00:00:00 2001
+From: Roman Arutyunyan <arut@qip.ru>
+Date: Sun, 14 Oct 2012 14:38:42 +0400
+Subject: [PATCH] added AVFMT_TS_DISCONT flag to flv demuxer
+
+---
+ libavformat/flvdec.c |    1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/libavformat/flvdec.c b/libavformat/flvdec.c
+index 4875047..9d5767b 100644
+--- a/libavformat/flvdec.c
++++ b/libavformat/flvdec.c
+@@ -905,5 +905,6 @@ AVInputFormat ff_flv_demuxer = {
+     .read_seek      = flv_read_seek,
+     .read_close     = flv_read_close,
+     .extensions     = "flv",
++    .flags          = AVFMT_TS_DISCONT,
+     .priv_class     = &class,
+ };
+-- 
+1.7.10.4
+

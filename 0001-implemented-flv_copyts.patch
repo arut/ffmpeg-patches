@@ -1,0 +1,76 @@
+From 27dd46c9f33d326a4547c72f95c602f95e4a3c2b Mon Sep 17 00:00:00 2001
+From: Roman Arutyunyan <arut@qip.ru>
+Date: Mon, 8 Oct 2012 23:43:17 +0400
+Subject: [PATCH] implemented flv_copyts
+
+---
+ libavformat/flvenc.c |   23 ++++++++++++++++++++++-
+ 1 file changed, 22 insertions(+), 1 deletion(-)
+
+diff --git a/libavformat/flvenc.c b/libavformat/flvenc.c
+index 9f04020..5beb9ae 100644
+--- a/libavformat/flvenc.c
++++ b/libavformat/flvenc.c
+@@ -21,6 +21,7 @@
+ 
+ #include "libavutil/intreadwrite.h"
+ #include "libavutil/dict.h"
++#include "libavutil/opt.h"
+ #include "libavutil/intfloat.h"
+ #include "libavutil/avassert.h"
+ #include "avc.h"
+@@ -58,17 +59,32 @@ static const AVCodecTag flv_audio_codec_ids[] = {
+ };
+ 
+ typedef struct FLVContext {
++    const   AVClass *av_class;
+     int     reserved;
+     int64_t duration_offset;
+     int64_t filesize_offset;
+     int64_t duration;
+     int64_t delay;      ///< first dts delay (needed for AVC & Speex)
++    int     copyts;
+ } FLVContext;
+ 
+ typedef struct FLVStreamContext {
+     int64_t last_ts;    ///< last timestamp for each stream
+ } FLVStreamContext;
+ 
++static const AVOption options[] = {
++    { "flv_copyts", "dont offset dts/pts",
++      offsetof(FLVContext, copyts), AV_OPT_TYPE_INT, {.i64=-1}, -1, 1, AV_OPT_FLAG_ENCODING_PARAM},
++    { NULL },
++};
++
++static const AVClass flv_muxer_class = {
++    .class_name     = "FLV muxer",
++    .item_name      = av_default_item_name,
++    .option         = options,
++    .version        = LIBAVUTIL_VERSION_INT,
++};
++
+ static int get_audio_flags(AVFormatContext *s, AVCodecContext *enc)
+ {
+     int flags = (enc->bits_per_coded_sample == 16) ? FLV_SAMPLESSIZE_16BIT
+@@ -507,7 +523,11 @@ static int flv_write_packet(AVFormatContext *s, AVPacket *pkt)
+         return AVERROR(EINVAL);
+     }
+ 
+-    ts = pkt->dts + flv->delay; // add delay to force positive dts
++    ts = pkt->dts;
++    if (flv->copyts < 0)
++        ts += flv->delay; // add delay to force positive dts
++
++        av_log(s, AV_LOG_WARNING, "flv timestamp: %u\n", ts);
+ 
+     /* check Speex packet duration */
+     if (enc->codec_id == AV_CODEC_ID_SPEEX && ts - sc->last_ts > 160)
+@@ -587,4 +607,5 @@ AVOutputFormat ff_flv_muxer = {
+                       },
+     .flags          = AVFMT_GLOBALHEADER | AVFMT_VARIABLE_FPS |
+                       AVFMT_TS_NONSTRICT,
++    .priv_class     = &flv_muxer_class
+ };
+-- 
+1.7.10.4
+
