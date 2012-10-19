@@ -1,0 +1,75 @@
+ ffmpeg.c     |   15 +++++++++++++++
+ ffmpeg.h     |    4 ++++
+ ffmpeg_opt.c |    4 ++++
+ 3 files changed, 23 insertions(+)
+
+diff --git a/ffmpeg.c b/ffmpeg.c
+index e69eb89..62cf7a0 100644
+--- a/ffmpeg.c
++++ b/ffmpeg.c
+@@ -511,6 +511,21 @@ static void write_frame(AVFormatContext *s, AVPacket *pkt, OutputStream *ost)
+         (avctx->codec_type == AVMEDIA_TYPE_AUDIO && audio_sync_method < 0))
+         pkt->pts = pkt->dts = AV_NOPTS_VALUE;
+ 
++    if (avctx->codec_type == AVMEDIA_TYPE_AUDIO && ost->align_aframes_threshold &&
++        pkt->pts != AV_NOPTS_VALUE && ost->st->pts.val != AV_NOPTS_VALUE) {
++        int64_t diff = pkt->pts - ost->st->pts.val;
++        int64_t maxdiff = av_rescale(ost->align_aframes_threshold, ost->st->time_base.den,
++                                     AV_TIME_BASE * (int64_t)ost->st->time_base.num);
++        if (diff > -maxdiff && diff < maxdiff) {
++            pkt->dts = pkt->pts = AV_NOPTS_VALUE;
++            av_log(s, AV_LOG_DEBUG, "st:%d align_aframes abs(%"PRId64") < %"PRId64"\n",
++                   pkt->stream_index, diff, maxdiff);
++        } else {
++            av_log(s, AV_LOG_WARNING, "st:%d align_aframes breakup abs(%"PRId64") > %"PRId64"\n",
++                   pkt->stream_index, diff, maxdiff);
++        }
++    }
++
+     if ((avctx->codec_type == AVMEDIA_TYPE_AUDIO || avctx->codec_type == AVMEDIA_TYPE_VIDEO) && pkt->dts != AV_NOPTS_VALUE) {
+         int64_t max = ost->st->cur_dts + !(s->oformat->flags & AVFMT_TS_NONSTRICT);
+         if (ost->st->cur_dts && ost->st->cur_dts != AV_NOPTS_VALUE &&  max > pkt->dts) {
+diff --git a/ffmpeg.h b/ffmpeg.h
+index 292670a..17472e4 100644
+--- a/ffmpeg.h
++++ b/ffmpeg.h
+@@ -169,6 +169,8 @@ typedef struct OptionsContext {
+     int        nb_pass;
+     SpecifierOpt *passlogfiles;
+     int        nb_passlogfiles;
++    SpecifierOpt *align_audio_frames;
++    int        nb_align_audio_frames;
+ } OptionsContext;
+ 
+ typedef struct InputFilter {
+@@ -316,6 +318,8 @@ typedef struct OutputStream {
+     int audio_channels_map[SWR_CH_MAX];  /* list of the channels id to pick from the source stream */
+     int audio_channels_mapped;           /* number of channels in audio_channels_map */
+ 
++    int64_t align_aframes_threshold;
++
+     char *logfile_prefix;
+     FILE *logfile;
+ 
+diff --git a/ffmpeg_opt.c b/ffmpeg_opt.c
+index 8a2e480..7d3362f 100644
+--- a/ffmpeg_opt.c
++++ b/ffmpeg_opt.c
+@@ -998,6 +998,8 @@ static OutputStream *new_output_stream(OptionsContext *o, AVFormatContext *oc, e
+         st->codec->codec_tag = tag;
+     }
+ 
++    MATCH_PER_STREAM_OPT(align_audio_frames, i64, ost->align_aframes_threshold, oc, st);
++
+     MATCH_PER_STREAM_OPT(qscale, dbl, qscale, oc, st);
+     if (qscale >= 0) {
+         st->codec->flags |= CODEC_FLAG_QSCALE;
+@@ -2469,6 +2471,8 @@ const OptionDef options[] = {
+         "set channel layout", "layout" },
+     { "af",             OPT_AUDIO | HAS_ARG  | OPT_PERFILE,                        { .func_arg = opt_audio_filters },
+         "audio filters", "filter list" },
++    { "align_aframes",  OPT_AUDIO | HAS_ARG  | OPT_INT64 | OPT_SPEC,               { .off = OFFSET(align_audio_frames) },
++        "align closely spaced audio frames" },
+ 
+     /* subtitle options */
+     { "sn",     OPT_SUBTITLE | OPT_BOOL | OPT_OFFSET, { .off = OFFSET(subtitle_disable) },
