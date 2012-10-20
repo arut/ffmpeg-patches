@@ -1,9 +1,3 @@
-From f6bd61a0a81ea1dc00147dc9f878353a4ab913ea Mon Sep 17 00:00:00 2001
-From: Roman Arutyunyan <arut@qip.ru>
-Date: Tue, 25 Sep 2012 14:40:38 +0400
-Subject: [PATCH] removed profile check when reading extra PPS bytes
-
----
  libavcodec/h264_ps.c |    2 ++
  1 file changed, 2 insertions(+)
 
@@ -20,6 +14,4 @@ index cdc6b07..9a38132 100644
      if ((profile_idc == 66 || profile_idc == 77 ||
           profile_idc == 88) && (sps->constraint_set_flags & 7)) {
          av_log(h->s.avctx, AV_LOG_VERBOSE,
--- 
-1.7.10.4
 
