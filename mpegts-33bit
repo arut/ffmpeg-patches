@@ -1,0 +1,51 @@
+diff --git a/libavformat/mpegts.c b/libavformat/mpegts.c
+index 5b44c0e..949fac2 100644
+--- a/libavformat/mpegts.c
++++ b/libavformat/mpegts.c
+@@ -122,6 +122,8 @@ struct MpegTSContext {
+     unsigned int nb_prg;
+     struct Program *prg;
+ 
++    /** base timestamp for smooth rolling over 33bits */
++    int64_t base_ts;
+ 
+     /** filters for various streams specified by PMT + for the PAT and PMT */
+     MpegTSFilter *pids[NB_PID_MAX];
+@@ -630,6 +632,26 @@ static int mpegts_set_stream_info(AVStream *st, PESContext *pes,
+     return 0;
+ }
+ 
++static int64_t unroll_timestamp(MpegTSContext *ts, int64_t t)
++{
++    int64_t dt;
++
++    if (t == AV_NOPTS_VALUE)
++        return t;
++
++    if (!ts->base_ts)
++        ts->base_ts = t;
++
++    dt = (t - ts->base_ts) & 0x01ffffffffll;
++    if (dt & 0x0100000000ll) {
++        dt |= 0xffffffff00000000ll;
++    }
++
++    ts->base_ts += dt;
++
++    return ts->base_ts;
++}
++
+ static void new_pes_packet(PESContext *pes, AVPacket *pkt)
+ {
+     av_init_packet(pkt);
+@@ -650,8 +672,8 @@ static void new_pes_packet(PESContext *pes, AVPacket *pkt)
+         pkt->stream_index = pes->sub_st->index;
+     else
+         pkt->stream_index = pes->st->index;
+-    pkt->pts = pes->pts;
+-    pkt->dts = pes->dts;
++    pkt->pts = unroll_timestamp(pes->ts, pes->pts);
++    pkt->dts = unroll_timestamp(pes->ts, pes->dts);
+     /* store position of first TS packet of this PES packet */
+     pkt->pos = pes->ts_packet_pos;
+     pkt->flags = pes->flags;
