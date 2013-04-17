@@ -1,5 +1,5 @@
 diff --git a/libavformat/flvenc.c b/libavformat/flvenc.c
-index c528bf5..7a40c5b 100644
+index 97c00bf..a3ccec0 100644
 --- a/libavformat/flvenc.c
 +++ b/libavformat/flvenc.c
 @@ -21,6 +21,7 @@
@@ -138,7 +138,7 @@ index c528bf5..7a40c5b 100644
              avio_wb24(pb, 0); // streamid
              pos = avio_tell(pb);
              if (enc->codec_id == AV_CODEC_ID_AAC) {
-@@ -440,12 +472,21 @@ static int flv_write_packet(AVFormatContext *s, AVPacket *pkt)
+@@ -440,7 +472,7 @@ static int flv_write_packet(AVFormatContext *s, AVPacket *pkt)
      AVIOContext *pb      = s->pb;
      AVCodecContext *enc  = s->streams[pkt->stream_index]->codec;
      FLVContext *flv      = s->priv_data;
@@ -147,7 +147,9 @@ index c528bf5..7a40c5b 100644
      unsigned ts;
      int size = pkt->size;
      uint8_t *data = NULL;
-     int flags = -1, flags_size, ret;
+@@ -449,6 +481,15 @@ static int flv_write_packet(AVFormatContext *s, AVPacket *pkt)
+     av_dlog(s, "type:%s pts:%"PRId64" dts:%"PRId64" size:%d\n",
+             av_get_media_type_string(enc->codec_type), pkt->pts, pkt->dts, size);
  
 +    if (!flv->init_packets_sent) {
 +        ret = flv_write_init_packets(s, flv->copyts < 0 ? 0 : pkt->dts);
@@ -161,7 +163,7 @@ index c528bf5..7a40c5b 100644
      if (enc->codec_id == AV_CODEC_ID_VP6 || enc->codec_id == AV_CODEC_ID_VP6F ||
          enc->codec_id == AV_CODEC_ID_VP6A || enc->codec_id == AV_CODEC_ID_AAC)
          flags_size = 2;
-@@ -504,7 +545,9 @@ static int flv_write_packet(AVFormatContext *s, AVPacket *pkt)
+@@ -507,7 +548,9 @@ static int flv_write_packet(AVFormatContext *s, AVPacket *pkt)
          return AVERROR(EINVAL);
      }
  
@@ -172,7 +174,7 @@ index c528bf5..7a40c5b 100644
  
      /* check Speex packet duration */
      if (enc->codec_id == AV_CODEC_ID_SPEEX && ts - sc->last_ts > 160)
-@@ -584,4 +627,5 @@ AVOutputFormat ff_flv_muxer = {
+@@ -587,4 +630,5 @@ AVOutputFormat ff_flv_muxer = {
                        },
      .flags          = AVFMT_GLOBALHEADER | AVFMT_VARIABLE_FPS |
                        AVFMT_TS_NONSTRICT,
