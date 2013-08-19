@@ -1,7 +1,25 @@
 From 57909b51dbac7dca917958444e564d2ca33c7b35 Mon Sep 17 00:00:00 2001
-From: Roman Arutyunyan <arutyunyan.roman@gmail.com>
 Date: Wed, 3 Oct 2012 18:13:49 +0400
 Subject: [PATCH] Implemented arrange feature to convert from low timebase formats to high timebase
+
+This patch rearranges frame timestamps in muxer.
+
+The problem: When remuxing from low-timebase-resolution formats (like RTMP with 1KHz time base)
+to high-resolution formats (like MPEG-TS with 90KHz) frame timestamps are multiplied by
+resolution factor (*90 in this case). That significantly increases round-off error. If you
+have two audio frames next to one another that kind of remuxing may result in your second frame's 
+timestamp be too far from where it should be as a result of round-off error multiplication.
+While I have not found a PC software sensitive to that kind of error Apple iPhone is very
+much sensitive producing crackles at audio frame boundaries after such conversion (I convert 
+RTMP to HLS).
+
+The patch intoduces '-arrange[:stream_specifier] arrange_threshold' option, where arrange_threshold
+is max timestamp divergence in microseconds. When the argument is nonzero and current frame dts 
+is within arrange_threshold distance from muxer stream dts then packet dts is reset making
+current frame receive the currect auto-generated dts from muxer. If new packet dts differs
+too much then it's not changed in any way (that usually means a gap in audio stream).
+
+The feature makes sence when applied to audio stream.
 
 ---
  ffmpeg.h             |    2 ++

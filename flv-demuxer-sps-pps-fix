@@ -1,0 +1,13 @@
+diff --git a/libavformat/flvdec.c b/libavformat/flvdec.c
+index 69e2bee..ee393f7 100644
+--- a/libavformat/flvdec.c
++++ b/libavformat/flvdec.c
+@@ -828,7 +828,7 @@ retry_duration:
+             if (flv->wrong_dts)
+                 dts = AV_NOPTS_VALUE;
+         }
+-        if (type == 0 && (!st->codec->extradata || st->codec->codec_id == AV_CODEC_ID_AAC)) {
++        if (type == 0) {
+             if (st->codec->extradata) {
+                 if ((ret = flv_queue_extradata(flv, s->pb, stream_type, size)) < 0)
+                     return ret;
