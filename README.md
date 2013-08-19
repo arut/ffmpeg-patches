@@ -15,3 +15,6 @@ Removes h264 error complains.
 
 ### mpegts-33bit
 Implements smooth 33-bit mpeg-ts timestamp overflow in mpegts muxer.
+
+### flv-demuxer-sps-pps-fix
+Fixes flv-to-mp4 remuxing http://ffmpeg.org/trac/ffmpeg/ticket/2085
